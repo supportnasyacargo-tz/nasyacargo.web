@@ -225,31 +225,79 @@ function submitQuote() {
 }
 
 // ── CONTACT FORM ───────────────────────────────────────────────
-function submitContact() {
+async function submitContact() {
   const name = document.getElementById('cName')?.value.trim();
   const email = document.getElementById('cEmail')?.value.trim();
-  const msg  = document.getElementById('cMsg')?.value.trim();
+  const phone = document.getElementById('cPhone')?.value.trim();
+  const subject = document.getElementById('cSubject')?.value;
+  const msg = document.getElementById('cMsg')?.value.trim();
+  const endpoint = window.NASYA_CONTACT_API_URL || '';
 
   if (!name || !email || !msg) {
     showNotif('Please fill in all required fields.', 'error');
     return;
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showNotif('Please enter a valid email address.', 'error');
+    return;
+  }
+
+  if (msg.length < 5) {
+    showNotif('Message cannot be empty.', 'error');
+    return;
+  }
+
+  if (!endpoint) {
+    showNotif('Contact API is not configured yet.', 'error');
+    return;
+  }
+
   const btn = document.querySelector('#contactForm .btn-submit');
+  const originalText = btn?.textContent || 'Send Message';
   if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
 
-  setTimeout(() => {
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        subject,
+        message: msg,
+        source_page: window.location.href,
+        user_agent: navigator.userAgent
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Message could not be sent. Please try again.');
+    }
+
     const success = document.getElementById('contactSuccess');
     if (success) {
+      success.textContent = data.message || 'Message sent! We will reply within 4 business hours.';
       success.classList.add('show');
       success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    if (btn) { btn.textContent = 'Send Message'; btn.disabled = false; }
-    showNotif(' Message sent! We\'ll reply within 4 hours.', 'success');
-  }, 900);
+
+    document.getElementById('cName').value = '';
+    document.getElementById('cEmail').value = '';
+    document.getElementById('cPhone').value = '';
+    document.getElementById('cMsg').value = '';
+    showNotif('Message sent successfully.', 'success');
+  } catch (error) {
+    showNotif(error.message || 'Message could not be sent. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.textContent = originalText; btn.disabled = false; }
+  }
 }
 
-// ── FAQ ACCORDION ──────────────────────────────────────────────
+// FAQ ACCORDION
 function initFaq() {
   document.querySelectorAll('.faq-q').forEach(q => {
     q.addEventListener('click', () => {
