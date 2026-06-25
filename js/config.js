@@ -1,0 +1,1 @@
+window.NASYA_CONTACT_API_URL = "";
